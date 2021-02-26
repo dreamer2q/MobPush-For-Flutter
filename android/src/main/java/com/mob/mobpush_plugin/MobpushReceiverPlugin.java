@@ -1,6 +1,8 @@
 package com.mob.mobpush_plugin;
 
 import android.content.Context;
+import android.os.Handler;
+import android.util.Log;
 
 import com.mob.mobpush_plugin.req.SimulateRequest;
 import com.mob.pushsdk.MobPush;
@@ -25,11 +27,23 @@ import io.flutter.plugin.common.PluginRegistry.Registrar;
  */
 public class MobpushReceiverPlugin implements EventChannel.StreamHandler {
     private static MobPushReceiver mobPushReceiver;
+    private static MobPushNotifyMessage initNotifyMessage;
+    private static long defaultDelaySpan;
+    private final String tag = "MobPushFlutter";
 
     private Hashon hashon = new Hashon();
 
-    public static MobPushReceiver getMobPushReceiver(){
+    public static MobPushReceiver getMobPushReceiver() {
         return mobPushReceiver;
+    }
+
+    public static void setInitNotifyMessage(MobPushNotifyMessage msg) {
+        setInitNotifyMessage(msg, 1500);
+    }
+
+    public static void setInitNotifyMessage(MobPushNotifyMessage msg, long delaySpan) {
+        initNotifyMessage = msg;
+        defaultDelaySpan = delaySpan;
     }
 
     /**
@@ -80,13 +94,27 @@ public class MobpushReceiverPlugin implements EventChannel.StreamHandler {
     }
 
     @Override
-    public void onListen(Object o, EventChannel.EventSink eventSink) {
+    public void onListen(Object o, final EventChannel.EventSink eventSink) {
         mobPushReceiver = createMobPushReceiver(eventSink);
         MobPush.addPushReceiver(mobPushReceiver);
+
+        if (initNotifyMessage == null) {
+            Log.d(tag, "onListen without initNotifyMessage");
+            return;
+        }
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                HashMap<String, Object> map = new HashMap<>();
+                map.put("action", 2);
+                map.put("result", hashon.fromJson(hashon.fromObject(initNotifyMessage)));
+                eventSink.success(hashon.fromHashMap(map));
+            }
+        }, defaultDelaySpan);
     }
 
     @Override
     public void onCancel(Object o) {
-
+        MobPush.removePushReceiver(mobPushReceiver);
     }
 }
